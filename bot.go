@@ -41,6 +41,9 @@ func startBot() {
 		//Download photo
 		bot.Download(&tgbot.File{FileID: m.Photo.FileID}, fmt.Sprintf("./cache%s.jpg", m.Photo.FileID))
 		saucenaoJson := saucenaoSearch(m.Photo.FileID)
+		if config.Debug {
+			bot.Send(m.Chat, saucenaoJson)
+		}
 		var result saucenaoJSONStruct
 		var extURLs string
 		json.Unmarshal([]byte(saucenaoJson), &result)
@@ -51,9 +54,6 @@ func startBot() {
 		//bot.Reply(m, &tgbot.Photo{File: tgbot.FromURL(result.Results[0].Header.Thumbnail)})
 		//Telegram will show a thumbnail from URL, so there's no need to send it
 		bot.Reply(m, respText)
-		if config.Debug {
-			bot.Send(m.Chat, saucenaoJson)
-		}
 		os.Remove(fmt.Sprintf("./cache%s.jpg", m.Photo.FileID))
 		if !config.Silent {
 			log.Printf("Dealed with [%s]'s photo[%s] search[%d].", m.Sender.Username, m.Photo.FileID, m.Chat.ID)

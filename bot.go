@@ -25,6 +25,9 @@ func startBot() {
 
 	bot.Handle("/start", func(m *tgbot.Message) {
 		bot.Send(m.Sender, "Hello, "+m.Sender.FirstName+"!\n This is a bot from TurboHsu.\n In order to learn more, type /info.")
+		if !config.Silent {
+			log.Printf("Dealed with [%s]'s start [%d].", m.Sender.FirstName, m.Chat.ID)
+		}
 	})
 
 	bot.Handle("/ping", func(m *tgbot.Message) {
@@ -59,6 +62,9 @@ func startBot() {
 
 	bot.Handle("/info", func(m *tgbot.Message) {
 		bot.Reply(m, "TurboHsu's Personal Bot.\nGithub repo:[https://github.com/TurboHsu/turbo-tg-bot]\nEnjoy!")
+		if !config.Silent {
+			log.Printf("Dealed with [%s]'s info [%d].", m.Sender.FirstName, m.Chat.ID)
+		}
 	})
 
 	bot.Start()

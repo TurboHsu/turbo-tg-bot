@@ -4,7 +4,7 @@ For personal usage.
 ---
 ## Features
 - ### Respond a ping
-    Ping response is a very intellengence action.
+    Ping response is a very intelligent action.
 
     Just think about it.
 

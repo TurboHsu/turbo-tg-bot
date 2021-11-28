@@ -1,4 +1,6 @@
 # TurboHsu's Telegram Bot
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FTurboHsu%2Fturbo-tg-bot.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FTurboHsu%2Fturbo-tg-bot?ref=badge_shield)
+
 For personal usage.
 
 ---
@@ -34,3 +36,6 @@ https://saucenao.com
 Add more image search sources
 
 Add code runner using glot.io
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FTurboHsu%2Fturbo-tg-bot.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FTurboHsu%2Fturbo-tg-bot?ref=badge_large)

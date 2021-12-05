@@ -5,6 +5,28 @@ type configStruct struct {
 	SaucenaoAPIKey string `json:"saucenao_api_key"`
 	Debug          bool   `json:"debug"`
 	Silent         bool   `json:"silent"`
+	GlotAPIKey     string `json:"glot_api_key"`
+	Glot           []struct {
+		Name string `json:"name"`
+		Ext  string `json:"ext"`
+		File string `json:"file"`
+	} `json:"glot"`
+}
+
+type glotRequest struct {
+	Stdin string            `json:"stdin"`
+	Files []glotRequestFile `json:"files"`
+}
+
+type glotRequestFile struct {
+	Name    string `json:"name"`
+	Content string `json:"content"`
+}
+
+type glotResponse struct {
+	Stdout string `json:"stdout"`
+	Stderr string `json:"stderr"`
+	Error  string `json:"error"`
 }
 
 type saucenaoJSONStruct struct {

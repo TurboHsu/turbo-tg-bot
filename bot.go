@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	tgbot "gopkg.in/tucnak/telebot.v2"
+	tgbot "gopkg.in/telebot.v3"
 )
 
 //Starts the bot
@@ -24,7 +24,8 @@ func startBot() {
 
 	//Handle messages
 
-	bot.Handle("/start", func(m *tgbot.Message) {
+	bot.Handle("/start", func(c tgbot.Context) error {
+		m := tgbot.Context.Message(c)
 		bot.Send(m.Sender, "Hello, "+m.Sender.FirstName+`!
 		This is a bot from TurboHsu.
 		In order to learn more, type /info. 
@@ -32,9 +33,11 @@ func startBot() {
 		if !config.Silent {
 			log.Printf("Dealed with [%s]'s start [%d].", m.Sender.FirstName, m.Chat.ID)
 		}
+		return nil
 	})
 
-	bot.Handle("/help", func(m *tgbot.Message) {
+	bot.Handle("/help", func(c tgbot.Context) error {
+		m := tgbot.Context.Message(c)
 		exactParameter := strings.Split(m.Text, " ")
 		if len(exactParameter) == 1 {
 			bot.Send(m.Sender, `TurboHsu's Bot Help 
@@ -71,16 +74,20 @@ func startBot() {
 		if !config.Silent {
 			log.Printf("Dealed with [%s]'s help [%d].", m.Sender.FirstName, m.Chat.ID)
 		}
+		return nil
 	})
 
-	bot.Handle("/ping", func(m *tgbot.Message) {
+	bot.Handle("/ping", func(c tgbot.Context) error {
+		m := tgbot.Context.Message(c)
 		bot.Reply(m, "Pong!")
 		if !config.Silent {
 			log.Printf("Dealed with [%s]'s ping [%d].", m.Sender.Username, m.Chat.ID)
 		}
+		return nil
 	})
 
-	bot.Handle("/search", func(m *tgbot.Message) {
+	bot.Handle("/search", func(c tgbot.Context) error {
+		m := tgbot.Context.Message(c)
 		if m.IsReply() {
 			exactParameter := strings.Split(m.Text, " ")
 			var db, respText string
@@ -125,19 +132,22 @@ func startBot() {
 		} else {
 			bot.Reply(m, "Please reply to a photo to search.")
 		}
-
+		return nil
 	})
 
-	bot.Handle("/info", func(m *tgbot.Message) {
+	bot.Handle("/info", func(c tgbot.Context) error {
+		m := tgbot.Context.Message(c)
 		bot.Reply(m, `TurboHsu's Personal Bot.
 		Github repo:[https://github.com/TurboHsu/turbo-tg-bot]
 		Enjoy!`)
 		if !config.Silent {
 			log.Printf("Dealed with [%s]'s info [%d].", m.Sender.FirstName, m.Chat.ID)
 		}
+		return nil
 	})
 
-	bot.Handle("/run", func(m *tgbot.Message) {
+	bot.Handle("/run", func(c tgbot.Context) error {
+		m := tgbot.Context.Message(c)
 		if m.IsReply() {
 			exactParameter := strings.Split(m.Text, " ")
 			var respText string
@@ -162,6 +172,7 @@ func startBot() {
 		} else {
 			bot.Reply(m, "Please reply to a piece of code to run.")
 		}
+		return nil
 	})
 
 	bot.Start()

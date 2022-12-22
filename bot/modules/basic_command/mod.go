@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	glotrunner "github.com/TurboHsu/turbo-tg-bot/bot/modules/glot_runner"
+	picsearch "github.com/TurboHsu/turbo-tg-bot/bot/modules/pic_search"
 	"github.com/TurboHsu/turbo-tg-bot/utils/log"
 	tgbot "gopkg.in/telebot.v3"
 )
@@ -36,11 +37,7 @@ func HelpHandler(c tgbot.Context) error {
 		var msg string
 		switch exactParameter[1] {
 		case "search":
-			msg = `/search <database> -- Reply to an image to search for it in a specific database.
-			Available databases:
-			saucenao
-
-			Searches the SauceNAO API by default. `
+			msg = picsearch.GenerateHelp()
 		case "info":
 			msg = `/info -- Get information about the bot.`
 		case "help":

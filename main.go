@@ -12,6 +12,9 @@ func main() {
 	flag.StringVar(&configPath, "config", "config.toml", "config file path")
 	flag.Parse()
 
+	//Debug
+	//os.Setenv("HTTPS_PROXY", "http://192.168.10.233:7890")
+
 	config.Init(configPath)
 	bot.InitBot()
 }

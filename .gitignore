@@ -2,3 +2,5 @@ config.json
 *.exe
 config.toml
 turbo-tg-bot
+database/
+cache/

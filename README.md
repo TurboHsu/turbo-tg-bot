@@ -24,6 +24,10 @@ For personal usage.
 This is a go mod, build it immediately :)
 
 ---
+## Note
+- You should manually create ```database``` and ```cache``` folder in your working directory before u run this program for the first time.
+
+---
 ## Thank
 Thanks to these repo&websites.
 

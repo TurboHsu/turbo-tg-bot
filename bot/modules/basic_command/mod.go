@@ -6,6 +6,7 @@ import (
 
 	glotrunner "github.com/TurboHsu/turbo-tg-bot/bot/modules/glot_runner"
 	picsearch "github.com/TurboHsu/turbo-tg-bot/bot/modules/pic_search"
+	whattoeat "github.com/TurboHsu/turbo-tg-bot/bot/modules/what_to_eat"
 	"github.com/TurboHsu/turbo-tg-bot/utils/log"
 	tgbot "gopkg.in/telebot.v3"
 )
@@ -44,6 +45,8 @@ func HelpHandler(c tgbot.Context) error {
 			msg = `/help -- Get help about the bot.`
 		case "run":
 			msg = glotrunner.GenerateHelp()
+		case "eat":
+			msg = whattoeat.GenerateHelp()
 		default:
 			msg = "Introduction not found."
 		}

@@ -36,6 +36,7 @@ func InitBot() {
 	bot.Handle("/info", basicCommand.InfoHandler)
 	bot.Handle("/run", glotrunner.RunHandler)
 	bot.Handle("/search", picsearch.SearchHandler)
+	bot.Handle("/eat", whattoeat.CommandHandler)
 	/* Modules end */
 
 	/* Query */

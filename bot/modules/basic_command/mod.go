@@ -79,3 +79,14 @@ func InfoHandler(bot *gotgbot.Bot, c *ext.Context) error {
 	log.HandleInfo(fmt.Sprintf("Dealed with [%s]'s info [%d].", c.EffectiveSender.FirstName(), c.EffectiveChat.Id))
 	return nil
 }
+
+func QueryFilter(query *gotgbot.InlineQuery) bool {
+	return true
+}
+
+func QueryResponse(bot *gotgbot.Bot, ctx *ext.Context) error {
+	results := make([]gotgbot.InlineQueryResult, 1)
+	results[0] = whattoeat.EatQueryResultHandler(ctx)
+	_, err := ctx.InlineQuery.Answer(bot, results, &gotgbot.AnswerInlineQueryOpts{CacheTime: 60})
+	return err
+}

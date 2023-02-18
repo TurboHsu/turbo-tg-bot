@@ -52,6 +52,9 @@ func InitBot() {
 	dispatcher.AddHandler(handlers.NewCommand("eat", whattoeat.CommandHandler))
 	/* Modules end */
 
+	/* Query */
+	dispatcher.AddHandler(handlers.NewInlineQuery(basicCommand.QueryFilter, basicCommand.QueryResponse))
+
 	/* Start pulling */
 	err = updater.StartPolling(bot, &ext.PollingOpts{
 		DropPendingUpdates: config.Config.Common.DropPendingUpdate,
@@ -62,6 +65,7 @@ func InitBot() {
 			},
 		},
 	})
+
 	if err != nil {
 		log.HandleError(err)
 		return

@@ -14,8 +14,8 @@ func StartHandler(bot *gotgbot.Bot, ctx *ext.Context) error {
 	_, err := ctx.EffectiveMessage.Reply(
 		bot,
 		fmt.Sprintf(`Hello, %s! This is a bot from TurboHsu.
-							In order to learn more, type /info.
-							For usage, type /help.`,
+In order to learn more, type /info.
+For usage, type /help.`,
 			ctx.EffectiveSender.FirstName(),
 		),
 		&gotgbot.SendMessageOpts{ParseMode: "html"},
@@ -33,11 +33,12 @@ func HelpHandler(bot *gotgbot.Bot, ctx *ext.Context) error {
 		_, _ = ctx.EffectiveMessage.Reply(
 			bot,
 			`TurboHsu's Bot Help
-				/search - Reply&Search for a specific image
-				/info - Get information about the bot
-				/help - Get help about the bot
-				/run - Reply&Run a piece of code
-				To get more information about the specific command, type /help <command>`,
+			/search - Reply&Search for a specific image
+			/info - Get information about the bot
+			/help - Get help about the bot
+			/run - Reply&Run a piece of code
+			/eat - Get food recommendations
+			To get more information about the specific command, type /help <command>`,
 			&gotgbot.SendMessageOpts{},
 		)
 	} else {
@@ -74,8 +75,8 @@ func PingHandler(bot *gotgbot.Bot, ctx *ext.Context) error {
 
 func InfoHandler(bot *gotgbot.Bot, c *ext.Context) error {
 	_, _ = c.EffectiveMessage.Reply(bot, `TurboHsu's Personal Bot.
-		Github repo:[https://github.com/TurboHsu/turbo-tg-bot]
-		Enjoy!`, &gotgbot.SendMessageOpts{})
+	Github repo:[https://github.com/TurboHsu/turbo-tg-bot]
+	Enjoy!`, &gotgbot.SendMessageOpts{})
 	log.HandleInfo(fmt.Sprintf("Dealed with [%s]'s info [%d].", c.EffectiveSender.FirstName(), c.EffectiveChat.Id))
 	return nil
 }

@@ -296,10 +296,13 @@ func byChance(chance float32) bool {
 
 // GenerateHelp TODO
 func GenerateHelp() string {
-	return `
-	| Help message.
-	| Maybe?
-	| WIP
+	return `/eat -- Get a food recommendation
+/eat group [quit|show] -- Quit or reveal current group
+/eat group join <name> -- Join or create a group
+/eat some <name> [at <where>] <rank> -- Recommend some food to your group
+		The rank field can be one of the following:
+			<x>/<y> -- Fractional format, should be no more than 1.0
+			<x> -- 10 based format, should be no more than 10
 	`
 }
 

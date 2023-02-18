@@ -84,6 +84,7 @@ func handleCommand(senderId int64, parameter []string) string {
 					group := data.FindGroup(user.GroupName)
 					user.GroupName = ""
 					if len(group.Members(data)) > 0 {
+						saveChanges()
 						return fmt.Sprintf("You have successfully quit [%s]!", group.Name)
 					} else {
 						index := -1
@@ -93,7 +94,7 @@ func handleCommand(senderId int64, parameter []string) string {
 								break
 							}
 						}
-						if index > 0 {
+						if index >= 0 {
 							data.Groups = append(data.Groups[:index], data.Groups[index+1:]...)
 							saveChanges()
 						}
@@ -145,7 +146,7 @@ func joinUser(groupName string, userId int64) (bool, bool) {
 	// Make sure user exists
 	if user == nil {
 		user = NewFoodEater(userId)
-		data.Users = append(data.Users, *user)
+		data.Users = append(data.Users, user)
 	}
 	// Make sure the user is not in other groups.
 	if user.GroupName != "" && user.GroupName != groupName {
@@ -154,11 +155,11 @@ func joinUser(groupName string, userId int64) (bool, bool) {
 
 	// Do some joining
 	group := data.FindGroup(groupName)
+	user.GroupName = groupName
 	if group != nil {
-		user.GroupName = groupName
 		return true, false
 	}
 
-	data.Groups = append(data.Groups, *NewGroup(groupName))
+	data.Groups = append(data.Groups, NewGroup(groupName))
 	return true, true
 }

@@ -52,7 +52,7 @@ func (data Database) FindGroup(name string) *FoodGroup {
 
 	for _, group := range data.Groups {
 		if group.Name == name {
-			return &group
+			return group
 		}
 	}
 	return nil
@@ -64,7 +64,7 @@ func (data Database) FindGroup(name string) *FoodGroup {
 func (data Database) FindUser(id int64) *FoodEater {
 	for _, user := range data.Users {
 		if user.ID == id {
-			return &user
+			return user
 		}
 	}
 	return nil
@@ -72,8 +72,8 @@ func (data Database) FindUser(id int64) *FoodEater {
 
 // Members gets all members belonging to
 // one group
-func (group FoodGroup) Members(data Database) []FoodEater {
-	var eaters []FoodEater
+func (group FoodGroup) Members(data Database) []*FoodEater {
+	var eaters []*FoodEater
 	for _, eater := range data.Users {
 		if eater.GroupName == group.Name {
 			eaters = append(eaters, eater)

@@ -6,8 +6,8 @@ type FoodGroup struct {
 }
 
 type Database struct {
-	Groups []FoodGroup `json:"groups"`
-	Users  []FoodEater `json:"users"`
+	Groups []*FoodGroup `json:"groups"`
+	Users  []*FoodEater `json:"users"`
 }
 
 type FoodEater struct {

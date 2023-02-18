@@ -6,7 +6,9 @@ import (
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
 	"github.com/TurboHsu/turbo-tg-bot/utils/log"
+	"io"
 	"net/http"
+	"os"
 	"strconv"
 )
 
@@ -43,17 +45,8 @@ func SearchHandler(bot *gotgbot.Bot, ctx *ext.Context) error {
 					count = cnt
 				}
 			}
-			for i, photo := range photos {
-				err := handlePhoto(bot, ctx, photo, count)
-				if err != nil {
-					_, _ = ctx.EffectiveMessage.Reply(bot,
-						fmt.Sprintf("An error occurred when searching photo %d you've sent", i+1),
-						&gotgbot.SendMessageOpts{},
-					)
-					log.HandleError(err)
-				}
-			}
-			return nil
+			err = handlePhoto(bot, ctx, photos[len(photos)-1], count)
+			return err
 		} else if len(exactParameter) == 2 && exactParameter[1] == "limit" {
 			err = handleLimit(bot, ctx)
 		} else {
@@ -96,7 +89,16 @@ func handlePhoto(bot *gotgbot.Bot, ctx *ext.Context, photo gotgbot.PhotoSize, co
 	}
 
 	// Search it
-	res := searchSauseNAO(imageRes.Body, count)
+	cachePath := fmt.Sprintf("./cache/%s.jpg", file.FileId)
+	if _, err = os.Stat("./cache"); os.IsNotExist(err) {
+		os.Mkdir("./cache", os.ModePerm)
+	}
+	imageFile, err := os.OpenFile(cachePath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666)
+	log.HandleError(err)
+	defer imageFile.Close()
+	io.Copy(imageFile, imageRes.Body)
+	res := searchSauseNAO(cachePath, count)
+	os.Remove(cachePath)
 
 	// Respond something
 	for i := 0; i < len(res.Results); i++ {

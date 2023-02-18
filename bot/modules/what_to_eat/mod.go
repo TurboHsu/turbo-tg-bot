@@ -6,6 +6,8 @@ import (
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
 	"github.com/TurboHsu/turbo-tg-bot/utils/log"
 	"math/rand"
+	"strconv"
+	"strings"
 )
 
 /*
@@ -39,6 +41,8 @@ func CommandHandler(bot *gotgbot.Bot, ctx *ext.Context) error {
 		switch parameter[1] {
 		case "group":
 			res = handleGroupCommand(senderId, parameter)
+		case "some":
+			res = handleAddCommand(senderId, parameter, bot, ctx)
 		default:
 			res = "Unknown action."
 		}
@@ -83,7 +87,7 @@ func handleGroupCommand(senderId int64, parameter []string) string {
 					return "You're already in one group. Can't join more!"
 				}
 			} else {
-				return "Too few argument"
+				return "Too few arguments"
 			}
 		case "quit":
 			user := data.FindUser(senderId)
@@ -125,10 +129,10 @@ func handleGroupCommand(senderId int64, parameter []string) string {
 			}
 			return "You are not in any of the groups! Go ahead and join one."
 		default:
-			return "Unknown action."
+			return "Unknown action"
 		}
 	} else {
-		return "Too few argument"
+		return "Too few arguments"
 	}
 }
 
@@ -136,18 +140,16 @@ func handleRecommendCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	user := data.FindUser(ctx.EffectiveSender.Id())
 	if user == nil || user.GroupName == "" {
 		_, err := ctx.EffectiveMessage.Reply(bot,
-			"You haven't joined a group yet. To get an recommendation, join one.",
+			"You haven't joined a group yet.\nTo get some recommendations, join one.",
 			&gotgbot.SendMessageOpts{})
 		return err
 	}
 
 	group := data.FindGroup(user.GroupName)
 	if group == nil {
-		ctx.EffectiveMessage.Reply(bot,
-			"<i>In internal error occurred</i>",
-			&gotgbot.SendMessageOpts{ParseMode: "html"})
+		sendInternalError(bot, ctx)
 		_, err := ctx.EffectiveMessage.Reply(bot,
-			fmt.Sprintf("Group %s has been removed, but somehow you're still in it. "+
+			fmt.Sprintf("Group %s has been removed, but somehow you're still in it.\n"+
 				"To continue, please run /eat group quit", user.GroupName),
 			&gotgbot.SendMessageOpts{})
 		return err
@@ -158,16 +160,121 @@ func handleRecommendCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	return err
 }
 
+func handleAddCommand(senderId int64, parameter []string, bot *gotgbot.Bot, ctx *ext.Context) string {
+	user := data.FindUser(senderId)
+	if user == nil || user.GroupName == "" {
+		return "You haven't joined a group yet.\nTo recommend a food, join one."
+	}
+	if len(parameter) < 4 {
+		return "Too few arguments. Please input something"
+	}
+
+	location := ""
+	rate := int8(-1)
+	name := ""
+	isRate := func(param string) (bool, int) {
+		if len(param) <= 0 {
+			return false, -1
+		}
+		slash := -1
+		for i, c := range param {
+			if c == '/' {
+				if i == 0 {
+					return false, 0
+				}
+				if slash >= 0 {
+					return false, slash
+				}
+				slash = i
+			} else if c < '0' || c > '9' {
+				return false, slash
+			}
+		}
+		return true, slash
+	}
+	for i := 2; i < len(parameter); i++ {
+		param := parameter[i]
+		if param == "at" {
+			for i+1 < len(parameter) {
+				i++
+				if r, _ := isRate(parameter[i]); r {
+					i--
+					break
+				}
+				location += " "
+				location += parameter[i]
+			}
+		} else if r, slash := isRate(param); r {
+			if slash >= 0 {
+				deno, err := strconv.ParseFloat(param[slash+1:], 8)
+				if err != nil {
+					return fmt.Sprintf("%s is not a legal number", param[slash+1:])
+				}
+				num, err := strconv.ParseFloat(param[:slash], 8)
+				if err != nil {
+					return fmt.Sprintf("%s is not a legal number", param[:slash])
+				}
+				rate = int8(num / deno * 100)
+			} else {
+				num, err := strconv.ParseInt(param, 10, 8)
+				if err != nil {
+					return fmt.Sprintf("%s is not a legal number", param)
+				}
+				rate = int8(num * 10)
+			}
+		} else {
+			name += " "
+			name += param
+		}
+	}
+
+	name = strings.Trim(name, " ")
+	location = strings.Trim(location, " ")
+	if name == "" || rate < 0 {
+		return "Too few arguments. Please give me more"
+	}
+
+	group := data.FindGroup(user.GroupName)
+	if group == nil {
+		sendInternalError(bot, ctx)
+		return fmt.Sprintf("Group %s has been removed, but somehow you're still in it.\n"+
+			"To continue, run /eat group quit", user.GroupName)
+	}
+
+	group.Food = append(group.Food, &Food{
+		Location: location,
+		Name:     name,
+		Rank:     rate,
+		Comment:  "",
+	})
+	saveChanges()
+	return "Successfully recommended this food"
+}
+
+func sendInternalError(bot *gotgbot.Bot, ctx *ext.Context) {
+	ctx.EffectiveMessage.Reply(bot,
+		"<i>An internal error occurred</i>",
+		&gotgbot.SendMessageOpts{ParseMode: "html"})
+}
+
 func getRecommendation(group *FoodGroup) *Food {
 	sum := 0
 	for _, food := range group.Food {
 		sum += int(food.Rank)
 	}
 
-	for i, food := range group.Food {
-		if i == len(group.Food)-1 || byChance(float32(food.Rank)/float32(sum)) {
-			return &food
+	for _, food := range group.Food {
+		if byChance(float32(food.Rank) / float32(sum)) {
+			return food
 		}
+	}
+	if len(group.Food) > 0 {
+		for _, food := range group.Food {
+			if food.Rank > 0 {
+				return food
+			}
+		}
+		return group.Food[0]
 	}
 	return nil
 }
@@ -184,7 +291,7 @@ func (food *Food) getRecommendationString() string {
 }
 
 func byChance(chance float32) bool {
-	return rand.Float32() <= chance
+	return rand.Float32() < chance
 }
 
 // GenerateHelp TODO

@@ -85,7 +85,7 @@ func (group FoodGroup) Members(data Database) []*FoodEater {
 func NewGroup(name string) *FoodGroup {
 	return &FoodGroup{
 		Name: name,
-		Food: make([]Food, 0),
+		Food: make([]*Food, 0),
 	}
 }
 

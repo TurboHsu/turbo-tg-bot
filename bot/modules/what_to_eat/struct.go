@@ -1,8 +1,8 @@
 package whattoeat
 
 type FoodGroup struct {
-	Name string `json:"name"`
-	Food []Food `json:"food"`
+	Name string  `json:"name"`
+	Food []*Food `json:"food"`
 }
 
 type Database struct {

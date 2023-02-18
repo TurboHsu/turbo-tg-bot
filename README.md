@@ -21,13 +21,12 @@ For personal usage.
 - ### Run a code
     Use glot.io API to run every code.
 
+- ### Recommend a Food
+  The bot's recommendations are very brilliant. Take them seriously.
+
 ---
 ## How to build
 This is a go mod, build it immediately :)
-
----
-## Note
-- You should manually create ```database``` and ```cache``` folder in your working directory before u run this program for the first time.
 
 ---
 ## Thank

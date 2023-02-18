@@ -57,6 +57,7 @@ func handleCommand(senderId int64, parameter []string) string {
 						groupName := parameter[3]
 						joined, created := joinUser(groupName, senderId)
 						if joined {
+							saveChanges()
 							if created {
 								return fmt.Sprintf("Group %s does not exist.\nDon't worry, you have created it!", groupName)
 							} else {
@@ -85,6 +86,17 @@ func handleCommand(senderId int64, parameter []string) string {
 					if len(group.Members(data)) > 0 {
 						return fmt.Sprintf("You have successfully quit [%s]!", group.Name)
 					} else {
+						index := -1
+						for i, g := range data.Groups {
+							if group.Name == g.Name {
+								index = i
+								break
+							}
+						}
+						if index > 0 {
+							data.Groups = append(data.Groups[:index], data.Groups[index+1:]...)
+							saveChanges()
+						}
 						return fmt.Sprintf("You have successfully quit [%s]. Because the group contains no users, it has beed deleted!", group.Name)
 					}
 				case "show":
@@ -115,7 +127,7 @@ func handleCommand(senderId int64, parameter []string) string {
 	return "Too few argument."
 }
 
-// TODO
+// GenerateHelp TODO
 func GenerateHelp() string {
 	return `
 	| Help message.
@@ -127,12 +139,13 @@ func GenerateHelp() string {
 // joinUser appends one user to a food group.
 // The first return value indicates success
 // of the join, while the other indicates whether
-// a new group has been created.
+// a new group has been created. Changes are not saved.
 func joinUser(groupName string, userId int64) (bool, bool) {
 	user := data.FindUser(userId)
 	// Make sure user exists
 	if user == nil {
 		user = NewFoodEater(userId)
+		data.Users = append(data.Users, *user)
 	}
 	// Make sure the user is not in other groups.
 	if user.GroupName != "" && user.GroupName != groupName {

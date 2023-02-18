@@ -1,9 +1,8 @@
 package glotrunner
 
 import (
-	"strings"
-
-	tgbot "gopkg.in/telebot.v3"
+	"github.com/PaulSonOfLars/gotgbot/v2"
+	"github.com/PaulSonOfLars/gotgbot/v2/ext"
 )
 
 func GenerateHelp() string {
@@ -15,28 +14,29 @@ func GenerateHelp() string {
 	return msg
 }
 
-func RunHandler(c tgbot.Context) error {
-	m := tgbot.Context.Message(c)
-	if m.IsReply() {
-		exactParameter := strings.Split(m.Text, " ")
-		var respText string
+func RunHandler(bot *gotgbot.Bot, ctx *ext.Context) error {
+	var respText string
+	if ctx.EffectiveMessage.ReplyToMessage != nil {
+		exactParameter := ctx.Args()
 		switch len(exactParameter) {
 		case 1:
 			respText = "Please specify a language."
 		case 2:
 			lang := exactParameter[1]
-			respText = run(m.ReplyTo.Text, lang, "")
+			code := ctx.EffectiveMessage.ReplyToMessage.Text
+			respText = run(code, lang, "")
 		case 3:
 			lang := exactParameter[1]
 			input := exactParameter[2]
-			respText = run(m.ReplyTo.Text, lang, input)
+			code := ctx.EffectiveMessage.ReplyToMessage.Text
+			respText = run(code, lang, input)
 		default:
 			respText = "Too many parameters."
 		}
-		c.Reply(respText)
 	} else {
-		c.Reply("In order to run code, please reply to a piece of code. ;)")
+		respText = "In order to run code, please reply to a piece of code. ;)"
 	}
+	_, _ = ctx.EffectiveMessage.Reply(bot, respText, &gotgbot.SendMessageOpts{})
 
 	return nil
 }

@@ -2,11 +2,9 @@ package config
 
 import (
 	"fmt"
+	"github.com/pelletier/go-toml/v2"
 	"io"
 	"os"
-	"strings"
-
-	"github.com/pelletier/go-toml/v2"
 )
 
 var Config configStruct
@@ -16,15 +14,11 @@ func Init(filepath string) {
 	if err != nil {
 		fmt.Println(err)
 		fmt.Println(os.ErrNotExist)
-		if strings.Contains(err.Error(), "cannot find") || err == os.ErrNotExist { //Weird, os.ErrNotExist is weird
-			err = write(filepath)
-			if err != nil {
-				panic("Error when creating config: " + err.Error())
-			}
-			panic("Config file created, please fill in the blanks and restart the program.")
-		} else {
-			panic(err)
+		err = write(filepath)
+		if err != nil {
+			panic("Error while creating config: " + err.Error())
 		}
+		panic("Config file created, please fill in the blanks and restart the program.")
 	}
 }
 

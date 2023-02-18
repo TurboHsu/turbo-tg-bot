@@ -2,8 +2,8 @@ package whattoeat
 
 import (
 	"fmt"
-	"strings"
-
+	"github.com/PaulSonOfLars/gotgbot/v2"
+	"github.com/PaulSonOfLars/gotgbot/v2/ext"
 	tgbot "gopkg.in/telebot.v3"
 )
 
@@ -28,17 +28,18 @@ func foodGenerate(uid int64) (description string, text string) {
 	return "nil", "nil"
 }
 
-// Handles the command
-func CommandHandler(c tgbot.Context) error {
+// CommandHandler Handles the command
+func CommandHandler(bot *gotgbot.Bot, ctx *ext.Context) error {
 	var ret string
-	parameter := strings.Split(tgbot.Context.Message(c).Text, " ")
+	parameter := ctx.Args()
+	senderId := ctx.EffectiveSender.Id()
 	if len(parameter) > 1 {
 		switch parameter[1] {
 		case "group":
 			/*
 				Group opeation:
 				join <group name> - Join one group. If you are already in one group, then u cant do it. If group does not exist, then create one. If group exists, then join it.
-				quit - Quit one group. If you are in one group, then quit it. If the group is empty, the delete it.
+				quit - Quit one group. If you are in one group, then quit it. If the group is empty, then delete it.
 				show - Show the current group info.
 			*/
 			if len(parameter) > 2 {
@@ -49,7 +50,7 @@ func CommandHandler(c tgbot.Context) error {
 						inGroup := false
 						for _, group := range Database {
 							for _, user := range group.GroupUser {
-								if c.Sender().ID == user {
+								if senderId == user {
 									inGroup = true
 									ret = fmt.Sprintf("You are already in group [%s], cannot join more groups.", group.GroupName)
 									break
@@ -66,19 +67,19 @@ func CommandHandler(c tgbot.Context) error {
 							flag := false
 							for i := 0; i < len(Database); i++ {
 								if groupName == Database[i].GroupName {
-									Database[i].GroupUser = append(Database[i].GroupUser, c.Sender().ID)
+									Database[i].GroupUser = append(Database[i].GroupUser, senderId)
 									ret = fmt.Sprintf("Joint group [%s] successfully. Now the group contains: [", groupName)
 									for _, uid := range Database[i].GroupUser {
 										ret += fmt.Sprintf("%d, ", uid)
 									}
-									ret += "]."
+									ret = ret[:len(ret)-2] + "]."
 									flag = true
 								}
 							}
 							if !flag { //Group does not exist
 								Database = append(Database, FoodGroup{
 									GroupName: groupName,
-									GroupUser: []int64{c.Sender().ID},
+									GroupUser: []int64{senderId},
 								})
 								ret = fmt.Sprintf("Group %s does not exist.\nDon't worry, you have created it!", groupName)
 								flag = true
@@ -96,19 +97,19 @@ func CommandHandler(c tgbot.Context) error {
 					flag := false
 					for i := 0; i < len(Database); i++ {
 						for _, user := range Database[i].GroupUser {
-							if c.Sender().ID == user && len(Database[i].GroupUser) > 1 {
+							if senderId == user && len(Database[i].GroupUser) > 1 {
 								flag = true
 								//Delete the user from the group
 								var newUser []int64
 								for _, u := range Database[i].GroupUser {
-									if c.Sender().ID != u {
+									if senderId != u {
 										newUser = append(newUser, u)
 									}
 								}
 								Database[i].GroupUser = newUser
 								ret = fmt.Sprintf("You have successfully quit [%s]!", Database[i].GroupName)
 								break
-							} else if c.Sender().ID == user && len(Database[i].GroupUser) == 1 {
+							} else if senderId == user && len(Database[i].GroupUser) == 1 {
 								flag = true
 								var newDatabase []FoodGroup
 								//The user have only this user left, delete it.
@@ -135,13 +136,13 @@ func CommandHandler(c tgbot.Context) error {
 					flag := false
 					for _, group := range Database {
 						for _, user := range group.GroupUser {
-							if c.Sender().ID == user {
+							if senderId == user {
 								flag = true
 								ret = fmt.Sprintf("You are in group [%s], there are these users in the group:[", group.GroupName)
 								for _, u := range group.GroupUser {
 									ret += fmt.Sprintf("%d, ", u)
 								}
-								ret += "]."
+								ret = ret[:len(ret)-2] + "]."
 								break
 							}
 						}
@@ -165,7 +166,7 @@ func CommandHandler(c tgbot.Context) error {
 		ret = "Too few argument."
 	}
 
-	c.Reply(ret)
+	ctx.EffectiveMessage.Reply(bot, ret, &gotgbot.SendMessageOpts{})
 	return nil
 }
 

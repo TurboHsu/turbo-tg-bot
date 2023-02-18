@@ -1,58 +1,73 @@
 package bot
 
 import (
-	"time"
-
-	// Modules start
+	"github.com/PaulSonOfLars/gotgbot/v2/ext/handlers"
 	basicCommand "github.com/TurboHsu/turbo-tg-bot/bot/modules/basic_command"
 	glotrunner "github.com/TurboHsu/turbo-tg-bot/bot/modules/glot_runner"
 	picsearch "github.com/TurboHsu/turbo-tg-bot/bot/modules/pic_search"
 	whattoeat "github.com/TurboHsu/turbo-tg-bot/bot/modules/what_to_eat"
+	"net/http"
+	"time"
 
 	// Modules end
-
+	"github.com/PaulSonOfLars/gotgbot/v2"
+	"github.com/PaulSonOfLars/gotgbot/v2/ext"
 	"github.com/TurboHsu/turbo-tg-bot/utils/config"
 	"github.com/TurboHsu/turbo-tg-bot/utils/log"
-	tgbot "gopkg.in/telebot.v3"
 )
 
 func InitBot() {
-	bot, err := tgbot.NewBot(tgbot.Settings{
-		Token:  config.Config.APIKeys.BotToken,
-		Poller: &tgbot.LongPoller{Timeout: 10 * time.Second},
+	bot, err := gotgbot.NewBot(config.Config.APIKeys.BotToken, &gotgbot.BotOpts{
+		Client: http.Client{},
+		DefaultRequestOpts: &gotgbot.RequestOpts{
+			Timeout: gotgbot.DefaultTimeout,
+			APIURL:  gotgbot.DefaultAPIURL,
+		},
 	})
 	log.HandleError(err)
 
 	/*Init Module*/
 	log.HandleError(whattoeat.Init())
 
-	/*Telegram Bot API Provider*/
-	picsearch.BotFetcher(bot)
+	/*Create updater and dispatcher*/
+	updater := ext.NewUpdater(&ext.UpdaterOpts{
+		Dispatcher: ext.NewDispatcher(&ext.DispatcherOpts{
+			Error: func(b *gotgbot.Bot, ctx *ext.Context, err error) ext.DispatcherAction {
+				log.HandleError(err)
+				return ext.DispatcherActionNoop
+			},
+			MaxRoutines: ext.DefaultMaxRoutines,
+		}),
+	})
+
+	dispatcher := updater.Dispatcher
 
 	/* Modules start */
-	bot.Handle("/start", basicCommand.StartHandler)
-	bot.Handle("/help", basicCommand.HelpHandler)
-	bot.Handle("/ping", basicCommand.PingHandler)
-	bot.Handle("/info", basicCommand.InfoHandler)
-	bot.Handle("/run", glotrunner.RunHandler)
-	bot.Handle("/search", picsearch.SearchHandler)
-	bot.Handle("/eat", whattoeat.CommandHandler)
+	dispatcher.AddHandler(handlers.NewCommand("start", basicCommand.StartHandler))
+	dispatcher.AddHandler(handlers.NewCommand("help", basicCommand.HelpHandler))
+	dispatcher.AddHandler(handlers.NewCommand("ping", basicCommand.PingHandler))
+	dispatcher.AddHandler(handlers.NewCommand("info", basicCommand.InfoHandler))
+	dispatcher.AddHandler(handlers.NewCommand("run", glotrunner.RunHandler))
+	dispatcher.AddHandler(handlers.NewCommand("search", picsearch.SearchHandler))
+	dispatcher.AddHandler(handlers.NewCommand("eat", whattoeat.CommandHandler))
 	/* Modules end */
 
-	/* Query */
-	bot.Handle(tgbot.OnQuery, func(c tgbot.Context) error {
-		//Gather query results
-		results := make(tgbot.Results, 1)
-		results[0] = whattoeat.EatQueryResultHandler(c)
-		results[0].SetResultID("0")
-
-		return c.Answer(&tgbot.QueryResponse{
-			Results:   results,
-			CacheTime: 60,
-		})
+	/* Start pulling */
+	err = updater.StartPolling(bot, &ext.PollingOpts{
+		DropPendingUpdates: config.Config.Common.DropPendingUpdate,
+		GetUpdatesOpts: gotgbot.GetUpdatesOpts{
+			Timeout: 9,
+			RequestOpts: &gotgbot.RequestOpts{
+				Timeout: time.Second * 10,
+			},
+		},
 	})
+	if err != nil {
+		log.HandleError(err)
+		return
+	}
 
 	log.HandleInfo("Congrats! Bot started successfully.")
 
-	bot.Start()
+	updater.Idle()
 }

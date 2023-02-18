@@ -12,6 +12,12 @@ var Database []FoodGroup
 
 func Init() error {
 	//Read the data store
+	if _, err := os.Stat("./database"); os.IsNotExist(err) {
+		err = os.Mkdir("./database", os.ModePerm)
+		Database = make([]FoodGroup, 0)
+		saveChanges()
+		return err
+	}
 	dbFile, err := os.OpenFile("./database/whattoeat.json", os.O_CREATE|os.O_RDONLY, 0666)
 	if err != nil {
 		return err

@@ -1,16 +1,14 @@
 package picsearch
 
 import (
+	"errors"
 	"fmt"
-	"os"
-	"strconv"
-	"strings"
-
+	"github.com/PaulSonOfLars/gotgbot/v2"
+	"github.com/PaulSonOfLars/gotgbot/v2/ext"
 	"github.com/TurboHsu/turbo-tg-bot/utils/log"
-	tgbot "gopkg.in/telebot.v3"
+	"net/http"
+	"strconv"
 )
-
-var bot *tgbot.Bot
 
 func GenerateHelp() string {
 	return `/search <database> -- Reply to an image to search for it in a specific database.
@@ -20,64 +18,112 @@ func GenerateHelp() string {
 	Searches the SauceNAO API by default. `
 }
 
-func BotFetcher(b *tgbot.Bot) {
-	bot = b
-}
-
-func SearchHandler(c tgbot.Context) error {
-	m := tgbot.Context.Message(c)
-	if m.IsReply() && m.ReplyTo.Photo != nil {
+func SearchHandler(bot *gotgbot.Bot, ctx *ext.Context) error {
+	replied := ctx.EffectiveMessage.ReplyToMessage
+	photos := ctx.EffectiveMessage.ReplyToMessage.Photo
+	var err error = nil
+	exactParameter := ctx.Args()
+	if replied != nil && photos != nil {
 		//Parameters: /search <count> <database>
 		//database defaults to saucenao (now only have one so i won't intemplate it)
 		//count defaults to 1
 		//If count is not a number, it will be treated as database
-		exactParameter := strings.Split(m.Text, " ")
 		if len(exactParameter) >= 1 && len(exactParameter) <= 3 {
-			var count int = 1
+			var count = 1
 			//Parse count
 			if len(exactParameter) >= 2 {
 				cnt, err := strconv.Atoi(exactParameter[1])
 				if err != nil {
-					c.Reply("<count> is invalid. Setting it to default value.")
+					_, _ = ctx.EffectiveMessage.Reply(
+						bot,
+						"<count> is invalid. Setting it to default value.",
+						&gotgbot.SendMessageOpts{},
+					)
 				} else {
 					count = cnt
 				}
 			}
-			//Download the file
-			err := bot.Download(&m.ReplyTo.Photo.File, "./cache/"+m.ReplyTo.Photo.UniqueID+".jpeg")
-			log.HandleError(err)
-
-			//Search it
-			res := searchSauseNAO("./cache/"+m.ReplyTo.Photo.UniqueID+".jpeg", count)
-
-			//Delete it
-			err = os.Remove("./cache/" + m.ReplyTo.Photo.UniqueID + ".jpeg")
-			log.HandleError(err)
-
-			//Response something
-			for i := 0; i < len(res.Results); i++ {
-				c.Reply(&tgbot.Photo{File: tgbot.FromURL(res.Results[i].Header.Thumbnail),
-					Caption: fmt.Sprintf("[%s] %s %s\n", res.Results[i].Header.Similarity,
-						res.Results[i].Data.Title,
-						res.Results[i].Data.ExtUrls[0])})
+			for i, photo := range photos {
+				err := handlePhoto(bot, ctx, photo, count)
+				if err != nil {
+					_, _ = ctx.EffectiveMessage.Reply(bot,
+						fmt.Sprintf("An error occurred when searching photo %d you've sent", i+1),
+						&gotgbot.SendMessageOpts{},
+					)
+					log.HandleError(err)
+				}
 			}
-
+			return nil
 		} else if len(exactParameter) == 2 && exactParameter[1] == "limit" {
-			c.Reply(fmt.Sprintf("Account Limit:\nIn short term: %d/%d\nIn long term: %d/%s",
-				saucenaoUser.ShortRemaining, saucenaoUser.ShortLimit,
-				saucenaoUser.LongRemaining, saucenaoUser.LongLimit,
-			))
-
+			err = handleLimit(bot, ctx)
 		} else {
-			c.Reply("Too many parameters.")
+			_, err = ctx.EffectiveMessage.Reply(bot,
+				"Too many parameters.",
+				&gotgbot.SendMessageOpts{},
+			)
 		}
 	} else {
-		exactParameter := strings.Split(m.Text, " ")
 		if len(exactParameter) == 2 && exactParameter[1] == "limit" {
-
+			err = handleLimit(bot, ctx)
 		} else {
-			c.Reply("In order to search for an image, please reply to an image. ;)")
+			_, err = ctx.EffectiveMessage.Reply(bot,
+				"In order to search for an image, please reply to an image ;)",
+				&gotgbot.SendMessageOpts{})
 		}
 	}
+	if err != nil {
+		log.HandleError(err)
+	}
 	return nil
+}
+
+func handlePhoto(bot *gotgbot.Bot, ctx *ext.Context, photo gotgbot.PhotoSize, count int) error {
+	// Download the picture
+	file, err := bot.GetFile(photo.FileId, &gotgbot.GetFileOpts{})
+	if err != nil {
+		return err
+	}
+
+	client := http.Client{}
+	imageRes, err := client.Get(file.GetURL(bot))
+	if imageRes.StatusCode%100 > 2 {
+		return errors.New(
+			fmt.Sprintf(
+				"Failed to download image %s: HTTP request failed with status %d",
+				photo.FileId, imageRes.StatusCode,
+			),
+		)
+	}
+
+	// Search it
+	res := searchSauseNAO(imageRes.Body, count)
+
+	// Respond something
+	for i := 0; i < len(res.Results); i++ {
+		result := &res.Results[i]
+		caption := fmt.Sprintf("[%s] %s %s\n", result.Header.Similarity,
+			result.Data.Title,
+			result.Data.ExtUrls[0])
+		_, err = bot.SendPhoto(ctx.EffectiveChat.Id, result.Header.Thumbnail, &gotgbot.SendPhotoOpts{Caption: caption})
+		if err != nil {
+			log.HandleError(err)
+			_, _ = ctx.EffectiveChat.SendMessage(bot,
+				"<i>An error occurred when sending the photo</i>",
+				&gotgbot.SendMessageOpts{ParseMode: "html"})
+		}
+	}
+
+	return nil
+}
+
+func handleLimit(bot *gotgbot.Bot, ctx *ext.Context) error {
+	_, err := ctx.EffectiveMessage.Reply(bot,
+		fmt.Sprintf("Account Limit:\nIn short term: %d/%d\nIn long term: %d/%s",
+			saucenaoUser.ShortRemaining, saucenaoUser.ShortLimit,
+			saucenaoUser.LongRemaining, saucenaoUser.LongLimit,
+		),
+		&gotgbot.SendMessageOpts{},
+	)
+
+	return err
 }

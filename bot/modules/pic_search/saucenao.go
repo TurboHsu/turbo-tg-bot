@@ -4,30 +4,25 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/TurboHsu/turbo-tg-bot/utils/config"
+	"github.com/TurboHsu/turbo-tg-bot/utils/log"
 	"io"
 	"mime/multipart"
 	"net/http"
-	"os"
-
-	"github.com/TurboHsu/turbo-tg-bot/utils/config"
-	"github.com/TurboHsu/turbo-tg-bot/utils/log"
 )
 
 var saucenaoUser saucenaoUserStat
 
 // This function searches saucenao
-func searchSauseNAO(filepath string, count int) saucenaoResponse {
+func searchSauseNAO(image io.ReadCloser, count int) saucenaoResponse {
 	//Search the pic
-	photo, err := os.Open(filepath)
-	log.HandleError(err)
-	defer photo.Close()
-
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("file", filepath)
+	part, err := writer.CreateFormField("file")
 	log.HandleError(err)
-	_, err = io.Copy(part, photo)
+	_, err = io.Copy(part, image)
 	log.HandleError(err)
+	image.Close()
 	writer.Close()
 
 	httpReq, err := http.NewRequest("POST",

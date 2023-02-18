@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
+	"github.com/TurboHsu/turbo-tg-bot/utils/log"
 )
 
 /*
 	Structure:
-	User -> User Group -> Eat Data -> Random generate -> send
+	Members -> Members Group -> Eat Data -> Random generate -> send
 */
 
 func EatQueryResultHandler(ctx *ext.Context) *gotgbot.InlineQueryResultArticle {
@@ -30,9 +31,16 @@ func foodGenerate(uid int64) (description string, text string) {
 
 // CommandHandler Handles the command
 func CommandHandler(bot *gotgbot.Bot, ctx *ext.Context) error {
-	var ret string
-	parameter := ctx.Args()
-	senderId := ctx.EffectiveSender.Id()
+	res := handleCommand(ctx.EffectiveSender.Id(), ctx.Args())
+	if res != "" {
+		_, err := ctx.EffectiveMessage.Reply(bot, res, &gotgbot.SendMessageOpts{})
+		log.HandleError(err)
+	}
+
+	return nil
+}
+
+func handleCommand(senderId int64, parameter []string) string {
 	if len(parameter) > 1 {
 		switch parameter[1] {
 		case "group":
@@ -46,128 +54,65 @@ func CommandHandler(bot *gotgbot.Bot, ctx *ext.Context) error {
 				switch parameter[2] {
 				case "join":
 					if len(parameter) > 3 {
-						//Make sure the user is not in other groups.
-						inGroup := false
-						for _, group := range Database {
-							for _, user := range group.GroupUser {
-								if senderId == user {
-									inGroup = true
-									ret = fmt.Sprintf("You are already in group [%s], cannot join more groups.", group.GroupName)
-									break
-								}
-							}
-							if inGroup {
-								break
-							}
-						}
-
-						if !inGroup {
-							//Do some join
-							groupName := parameter[3]
-							flag := false
-							for i := 0; i < len(Database); i++ {
-								if groupName == Database[i].GroupName {
-									Database[i].GroupUser = append(Database[i].GroupUser, senderId)
-									ret = fmt.Sprintf("Joint group [%s] successfully. Now the group contains: [", groupName)
-									for _, uid := range Database[i].GroupUser {
-										ret += fmt.Sprintf("%d, ", uid)
-									}
-									ret = ret[:len(ret)-2] + "]."
-									flag = true
-								}
-							}
-							if !flag { //Group does not exist
-								Database = append(Database, FoodGroup{
-									GroupName: groupName,
-									GroupUser: []int64{senderId},
-								})
-								ret = fmt.Sprintf("Group %s does not exist.\nDon't worry, you have created it!", groupName)
-								flag = true
-							}
-
-							if flag {
-								saveChanges()
-							}
-						}
-
-					} else {
-						ret = "Too few argument"
-					}
-				case "quit":
-					flag := false
-					for i := 0; i < len(Database); i++ {
-						for _, user := range Database[i].GroupUser {
-							if senderId == user && len(Database[i].GroupUser) > 1 {
-								flag = true
-								//Delete the user from the group
-								var newUser []int64
-								for _, u := range Database[i].GroupUser {
-									if senderId != u {
-										newUser = append(newUser, u)
-									}
-								}
-								Database[i].GroupUser = newUser
-								ret = fmt.Sprintf("You have successfully quit [%s]!", Database[i].GroupName)
-								break
-							} else if senderId == user && len(Database[i].GroupUser) == 1 {
-								flag = true
-								var newDatabase []FoodGroup
-								//The user have only this user left, delete it.
-								for _, g := range Database {
-									if g.GroupName != Database[i].GroupName {
-										newDatabase = append(newDatabase, g)
-									}
-								}
-								ret = fmt.Sprintf("You have successfully quit [%s]. Because the group contains no users, it has beed deleted!", Database[i].GroupName)
-								Database = newDatabase
-								break
-							}
-						}
-						if flag {
-							break
-						}
-					}
-					if flag {
-						saveChanges()
-					} else {
-						ret = "You are not in any of the groups! Go join or create one."
-					}
-				case "show":
-					flag := false
-					for _, group := range Database {
-						for _, user := range group.GroupUser {
-							if senderId == user {
-								flag = true
-								ret = fmt.Sprintf("You are in group [%s], there are these users in the group:[", group.GroupName)
-								for _, u := range group.GroupUser {
-									ret += fmt.Sprintf("%d, ", u)
+						groupName := parameter[3]
+						joined, created := joinUser(groupName, senderId)
+						if joined {
+							if created {
+								return fmt.Sprintf("Group %s does not exist.\nDon't worry, you have created it!", groupName)
+							} else {
+								ret := fmt.Sprintf("Joint group [%s] successfully. Now the group contains: [", groupName)
+								group := data.FindGroup(groupName)
+								members := group.Members(data)
+								for _, eater := range members {
+									ret += fmt.Sprintf("%d, ", eater.ID)
 								}
 								ret = ret[:len(ret)-2] + "]."
-								break
+								return ret
 							}
+						} else {
+							return "You're already in one group. Can't join more!"
 						}
-						if flag {
-							break
+					} else {
+						return "Too few argument"
+					}
+				case "quit":
+					user := data.FindUser(senderId)
+					if user == nil || user.GroupName == "" {
+						return "You are not in any of the groups! Go join or create one."
+					}
+					group := data.FindGroup(user.GroupName)
+					user.GroupName = ""
+					if len(group.Members(data)) > 0 {
+						return fmt.Sprintf("You have successfully quit [%s]!", group.Name)
+					} else {
+						return fmt.Sprintf("You have successfully quit [%s]. Because the group contains no users, it has beed deleted!", group.Name)
+					}
+				case "show":
+					user := data.FindUser(senderId)
+					if user != nil {
+						group := data.FindGroup(user.GroupName)
+						if group != nil {
+							ret := fmt.Sprintf("You are in group [%s], there are these users in the group:[", group.Name)
+							members := group.Members(data)
+							for _, member := range members {
+								ret += fmt.Sprintf("%d, ", member.ID)
+							}
+							ret = ret[:len(ret)-2] + "]."
+							return ret
 						}
 					}
-					if !flag {
-						ret = "You are not in any of the groups! Go ahead and join one."
-					}
+					return "You are not in any of the groups! Go ahead and join one."
 				default:
-					ret = "Unknown action."
+					return "Unknown action."
 				}
 			} else {
-				ret = "Too few argument"
+				return "Too few argument"
 			}
 		default:
-			ret = "Unknown action."
+			return "Unknown action."
 		}
-	} else {
-		ret = "Too few argument."
 	}
-
-	ctx.EffectiveMessage.Reply(bot, ret, &gotgbot.SendMessageOpts{})
-	return nil
+	return "Too few argument."
 }
 
 // TODO
@@ -177,4 +122,30 @@ func GenerateHelp() string {
 	| Maybe?
 	| WIP
 	`
+}
+
+// joinUser appends one user to a food group.
+// The first return value indicates success
+// of the join, while the other indicates whether
+// a new group has been created.
+func joinUser(groupName string, userId int64) (bool, bool) {
+	user := data.FindUser(userId)
+	// Make sure user exists
+	if user == nil {
+		user = NewFoodEater(userId)
+	}
+	// Make sure the user is not in other groups.
+	if user.GroupName != "" && user.GroupName != groupName {
+		return false, false
+	}
+
+	// Do some joining
+	group := data.FindGroup(groupName)
+	if group != nil {
+		user.GroupName = groupName
+		return true, false
+	}
+
+	data.Groups = append(data.Groups, *NewGroup(groupName))
+	return true, true
 }

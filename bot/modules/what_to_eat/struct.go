@@ -29,3 +29,8 @@ type Food struct {
 	Comment   string `json:"comment"`
 	Thumbnail string `json:"icon"`
 }
+
+type ReplyMessage struct {
+	Text  string
+	Image string
+}

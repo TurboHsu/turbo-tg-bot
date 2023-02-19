@@ -54,6 +54,8 @@ func InitBot() {
 
 	/* Query */
 	dispatcher.AddHandler(handlers.NewInlineQuery(basicCommand.QueryFilter, basicCommand.QueryResponse))
+	/* Messaging */
+	dispatcher.AddHandler(handlers.NewMessage(basicCommand.MessageFilter, basicCommand.MessageResponse))
 
 	/* Start pulling */
 	err = updater.StartPolling(bot, &ext.PollingOpts{

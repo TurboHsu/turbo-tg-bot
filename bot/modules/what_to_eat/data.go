@@ -2,19 +2,20 @@ package whattoeat
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 
 	"github.com/TurboHsu/turbo-tg-bot/utils/log"
 )
 
-var data Database
+var Data Database
 
 func Init() error {
-	//Read the data store
+	//Read the Data store
 	if _, err := os.Stat("./database"); os.IsNotExist(err) {
 		err = os.Mkdir("./database", os.ModePerm)
-		data = Database{}
+		Data = Database{}
 		saveChanges()
 		return err
 	}
@@ -27,13 +28,13 @@ func Init() error {
 	if err != nil {
 		return err
 	}
-	json.Unmarshal(byteVal, &data)
+	json.Unmarshal(byteVal, &Data)
 	return nil
 }
 
 func saveChanges() {
 	//Write to file
-	data, err := json.Marshal(data)
+	data, err := json.Marshal(Data)
 	log.HandleError(err)
 	dbFile, err := os.OpenFile("./database/whattoeat.json", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	log.HandleError(err)
@@ -82,13 +83,18 @@ func (group FoodGroup) Members(data Database) []*FoodEater {
 	return eaters
 }
 
-func NewGroup(name string) *FoodGroup {
-	return &FoodGroup{
-		Name: name,
-		Food: make([]*Food, 0),
+func makeGroup(name string) FoodGroup {
+	return FoodGroup{
+		Name:           name,
+		Food:           make([]*Food, 0),
+		ReviewInterval: 600,
 	}
 }
 
-func NewFoodEater(id int64) *FoodEater {
-	return &FoodEater{ID: id}
+func makeFoodEater(id int64) FoodEater {
+	return FoodEater{ID: id}
+}
+
+func (food *Food) RankString() string {
+	return fmt.Sprintf("%.1f / 10", float32(food.Rank)/10)
 }

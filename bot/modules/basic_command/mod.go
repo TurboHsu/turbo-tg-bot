@@ -82,12 +82,21 @@ func InfoHandler(bot *gotgbot.Bot, c *ext.Context) error {
 }
 
 func QueryFilter(query *gotgbot.InlineQuery) bool {
-	return true
+	eater := whattoeat.Data.FindUser(query.From.Id)
+	return eater != nil && eater.GroupName != ""
 }
 
 func QueryResponse(bot *gotgbot.Bot, ctx *ext.Context) error {
 	results := make([]gotgbot.InlineQueryResult, 1)
-	results[0] = whattoeat.EatQueryResultHandler(ctx)
-	_, err := ctx.InlineQuery.Answer(bot, results, &gotgbot.AnswerInlineQueryOpts{CacheTime: 60})
+	results[0] = whattoeat.EatQueryResultHandler(bot, ctx)
+	_, err := ctx.InlineQuery.Answer(bot, results, &gotgbot.AnswerInlineQueryOpts{CacheTime: 10, IsPersonal: false})
 	return err
+}
+
+func MessageFilter(message *gotgbot.Message) bool {
+	return whattoeat.IsReview(message)
+}
+
+func MessageResponse(bot *gotgbot.Bot, ctx *ext.Context) error {
+	return whattoeat.InterviewHandler(bot, ctx)
 }

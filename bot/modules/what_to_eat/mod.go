@@ -37,6 +37,8 @@ func CommandHandler(bot *gotgbot.Bot, ctx *ext.Context) error {
 			res.Text, res.Image = handleListCommand(senderId, parameter, ctx)
 		case "drop":
 			res.Text = handleDropCommand(senderId, parameter, bot, ctx)
+		case "comment":
+			res.Text = handleComment(senderId, parameter, ctx)
 		default:
 			res.Text = "Unknown action."
 		}
@@ -519,7 +521,7 @@ func handleListCommand(senderID int64, parameter []string, ctx *ext.Context) (te
 
 		foodList = group.FindFood(regex, regex.HasFlag(regexps.Global))
 		if len(foodList) <= 0 {
-			text = fmt.Sprintf("No food matching %s! Did u mistype or dream it?", name[:len(name)-1])
+			text = fmt.Sprintf("No food matching %s! Did u mistype or dream it?", name)
 			return
 		} else if len(foodList) == 1 {
 			food := foodList[0]
@@ -529,7 +531,7 @@ func handleListCommand(senderID int64, parameter []string, ctx *ext.Context) (te
 			}
 			text += fmt.Sprintf("The food's rank is [%d].\nIt's at [%s].", food.Rank, food.Location)
 			if food.Comment != "" {
-				text += fmt.Sprintf("And it got some comment: [%s]\n", food.Comment)
+				text += fmt.Sprintf("\nAnd it got some comment: [%s]\n", food.Comment)
 			}
 			image = food.Thumbnail
 			return
@@ -612,5 +614,51 @@ func handleDropCommand(senderID int64, parameter []string, bot *gotgbot.Bot, ctx
 		}
 	} else {
 		return "Nothing was dropped. Feel free to drop some."
+	}
+}
+
+// handleComment works as:
+// Reply to a text message and
+// /eat comment <regexp/foodname>
+func handleComment(senderID int64, parameter []string, ctx *ext.Context) (text string) {
+	user := Data.FindUser(senderID)
+	if user == nil || user.GroupName == "" {
+		text = "You are not in any of the groups! Join a group right now, or you will never know what food to eat ;D"
+		return
+	}
+	if ctx.EffectiveMessage.ReplyToMessage == nil {
+		text = "In order to add comments to food, you need to reply to it!"
+		return
+	}
+	group := Data.FindGroup(user.GroupName)
+	if len(parameter) < 3 {
+		text = "Too few argument. Would u like me to guess what u wanna comment for? Strawberries?"
+		return
+	} else {
+		//Merges all parameters to one food name
+		name := strings.Join(parameter[2:], " ")
+		regex, err := regexps.Compile(name)
+		if err != nil {
+			text = "Oh no. You don't know how regex expressions work. Did u mistype?"
+			return
+		}
+
+		foodList := group.FindFood(regex, regex.HasFlag(regexps.Global))
+		if len(foodList) <= 0 {
+			text = fmt.Sprintf("No food matching %s! Did u mistype or dream it?", name)
+			return
+		} else if len(foodList) == 1 {
+			food := foodList[0]
+			if regex.HasFlags() {
+				text = fmt.Sprintf("Matches some [%s].\n", food.Name)
+			}
+			food.Comment = ctx.EffectiveMessage.ReplyToMessage.Text
+			saveChanges()
+			text += "The comment has been modified successfully!"
+			return
+		} else {
+			text = "You can't comment to multiple food! Are u a multithread processor?"
+			return
+		}
 	}
 }

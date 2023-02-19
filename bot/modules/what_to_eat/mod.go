@@ -182,7 +182,19 @@ func handleRecommendCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 
 	recommendation := getRecommendation(group)
 	speech := recommendation.getRecommendationString()
-	_, err := ctx.EffectiveMessage.Reply(bot, speech, &gotgbot.SendMessageOpts{})
+	var err error
+	if recommendation.Thumbnail == "" {
+		_, err = ctx.EffectiveMessage.Reply(bot, speech, &gotgbot.SendMessageOpts{})
+	} else {
+		photo, err := bot.GetFile(recommendation.Thumbnail, &gotgbot.GetFileOpts{})
+		if err == nil {
+			_, err = bot.SendPhoto(ctx.EffectiveChat.Id, photo.FileId,
+				&gotgbot.SendPhotoOpts{
+					ReplyToMessageId: ctx.EffectiveMessage.MessageId,
+					Caption:          speech,
+				})
+		}
+	}
 
 	nextTimer := time.AfterFunc(group.ReviewInterval*time.Second, func() {
 		err = sendInterview(recommendation, bot, ctx)
@@ -268,46 +280,47 @@ func handleAddCommand(senderId int64, parameter []string, bot *gotgbot.Bot, ctx 
 				food.Rank = rate
 				modified = true
 			}
-			saveChanges()
 			return modified
 		}
 
-		if regex.HasFlags() {
-			foodList := group.FindFood(regex)
+		foodList := group.FindFood(regex)
 
-			if len(foodList) > 1 {
-				if !regex.HasFlag(regexps.Force) {
-					return "Do you know what you are doing? Modifying multiple targets requires /f flag."
-				}
+		if len(foodList) > 1 {
+			if !regex.HasFlag(regexps.Force) {
+				return "Do you know what you are doing? Modifying multiple targets requires /f flag."
+			}
 
-				success := make([]string, 0)
-				failure := make([]string, 0)
-				for _, food := range foodList {
-					if modify(food) {
-						success = append(success, food.Name)
-					} else {
-						failure = append(failure, food.Name)
-					}
-				}
-				if len(success) > 0 && len(failure) > 0 {
-					return fmt.Sprintf("Changes are made to [%s], while [%s] are queried but not modified",
-						strings.Join(success, ", "), strings.Join(failure, ", "))
-				} else if len(success) > 0 {
-					return fmt.Sprintf("Changes are made to [%s]", strings.Join(success, ", "))
-				} else if len(failure) > 0 {
-					return fmt.Sprintf("No change is made. [%s] are queried", strings.Join(failure, ", "))
-				}
-			} else if len(foodList) == 1 {
-				food := foodList[0]
-				modified := modify(food)
-				if modified {
-					return fmt.Sprintf("Successfully modified [%s]", food.Name)
+			success := make([]string, 0)
+			failure := make([]string, 0)
+			for _, food := range foodList {
+				if modify(food) {
+					success = append(success, food.Name)
 				} else {
-					return fmt.Sprintf("Queried [%s], but no change is made", food.Name)
+					failure = append(failure, food.Name)
 				}
 			}
-			return "No change is made. Feel free to make some."
+			if len(success) > 0 && len(failure) > 0 {
+				saveChanges()
+				return fmt.Sprintf("Changes are made to [%s], while [%s] are queried but not modified",
+					strings.Join(success, ", "), strings.Join(failure, ", "))
+			} else if len(success) > 0 {
+				saveChanges()
+				return fmt.Sprintf("Changes are made to [%s]", strings.Join(success, ", "))
+			} else if len(failure) > 0 {
+				saveChanges()
+				return fmt.Sprintf("No change is made. [%s] are queried", strings.Join(failure, ", "))
+			}
+		} else if len(foodList) == 1 {
+			food := foodList[0]
+			modified := modify(food)
+			if modified {
+				saveChanges()
+				return fmt.Sprintf("Successfully modified [%s]", food.Name)
+			} else {
+				return fmt.Sprintf("Queried [%s], but no change is made", food.Name)
+			}
 		}
+		return "No change is made. Feel free to make some."
 	}
 
 	if name == "" || rate < 0 {

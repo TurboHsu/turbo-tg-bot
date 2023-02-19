@@ -3,38 +3,52 @@ package whattoeat
 import (
 	"errors"
 	"fmt"
-	"github.com/PaulSonOfLars/gotgbot/v2"
-	"github.com/PaulSonOfLars/gotgbot/v2/ext"
-	"github.com/TurboHsu/turbo-tg-bot/utils/log"
 	"math/rand"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/PaulSonOfLars/gotgbot/v2"
+	"github.com/PaulSonOfLars/gotgbot/v2/ext"
+	"github.com/TurboHsu/turbo-tg-bot/utils/log"
 )
 
 /*
-	Structure:
-	Members -> Members Group -> Eat Data -> Random generate -> send
+Structure:
+Members -> Members Group -> Eat Data -> Random generate -> send
 */
 
 // CommandHandler Handles the command
 func CommandHandler(bot *gotgbot.Bot, ctx *ext.Context) error {
 	parameter := ctx.Args()
 	if len(parameter) > 1 {
+		var res ReplyMessage
 		senderId := ctx.EffectiveSender.Id()
-		var res string
 		switch parameter[1] {
 		case "group":
-			res = handleGroupCommand(senderId, parameter)
+			res.Text = handleGroupCommand(senderId, parameter)
 		case "some":
-			res = handleAddCommand(senderId, parameter, bot, ctx)
+			res.Text = handleAddCommand(senderId, parameter, bot, ctx)
+		case "list":
+			res.Text, res.Image = handleListCommand(senderId, parameter, ctx)
 		default:
-			res = "Unknown action."
+			res.Text = "Unknown action."
 		}
-		if res != "" {
-			_, err := ctx.EffectiveMessage.Reply(bot, res, &gotgbot.SendMessageOpts{})
+		if res.Text != "" && res.Image == "" {
+			_, err := ctx.EffectiveMessage.Reply(bot, res.Text, &gotgbot.SendMessageOpts{})
+			log.HandleError(err)
+		} else if res.Text != "" && res.Image != "" {
+			_, err := bot.SendPhoto(
+				ctx.EffectiveChat.Id,
+				res.Image,
+				&gotgbot.SendPhotoOpts{
+					Caption:          res.Text,
+					ReplyToMessageId: ctx.Message.MessageId,
+				},
+			)
 			log.HandleError(err)
 		}
+
 	} else {
 		return handleRecommendCommand(bot, ctx)
 	}
@@ -459,4 +473,36 @@ func InterviewHandler(bot *gotgbot.Bot, ctx *ext.Context) error {
 		&gotgbot.SendMessageOpts{})
 
 	return err
+}
+
+func handleListCommand(senderID int64, parameter []string, ctx *ext.Context) (text string, image string) {
+	user := Data.FindUser(senderID)
+	if user == nil || user.GroupName == "" {
+		text = "You are not in any of the groups! Join a group right now, or you will never know what food to eat ;D"
+		return
+	}
+	group := Data.FindGroup(user.GroupName)
+	if len(parameter) > 2 { //List specific food
+		//Merges all parameters to one food name
+		var foodName string
+		for i := 2; i < len(parameter); i++ {
+			foodName += parameter[i] + " "
+		}
+		food := group.FindFood(foodName[:len(foodName)-1])
+		if food == nil {
+			text = fmt.Sprintf("Food [%s] not found! Did u mistype or dream it?", foodName)
+		} else {
+			text = fmt.Sprintf("The food's rank is [%d].\nIt's at [%s].", food.Rank, food.Location)
+			if food.Comment != "" {
+				text += fmt.Sprintf("And it got some comment: [%s]\n", food.Comment)
+			}
+			image = food.Thumbnail
+		}
+	} else { //List all foods
+		text = fmt.Sprintf("Here are these foods in group [%s]:\n", user.GroupName)
+		for _, food := range group.Food {
+			text += fmt.Sprintf("	- Name: [%s] Location: [%s] Rank: [%d] Comment: [%s]\n", food.Name, food.Location, food.Rank, food.Comment)
+		}
+	}
+	return
 }

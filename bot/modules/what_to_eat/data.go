@@ -71,6 +71,17 @@ func (data Database) FindUser(id int64) *FoodEater {
 	return nil
 }
 
+// FindFood finds a food in specific group
+func (group FoodGroup) FindFood(foodname string) (food *Food) {
+	for _, f := range group.Food {
+		if foodname == f.Name {
+			food = f
+			return
+		}
+	}
+	return
+}
+
 // Members gets all members belonging to
 // one group
 func (group FoodGroup) Members(data Database) []*FoodEater {

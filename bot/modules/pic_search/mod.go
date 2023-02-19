@@ -1,15 +1,15 @@
 package picsearch
 
 import (
-	"errors"
 	"fmt"
-	"github.com/PaulSonOfLars/gotgbot/v2"
-	"github.com/PaulSonOfLars/gotgbot/v2/ext"
-	"github.com/TurboHsu/turbo-tg-bot/utils/log"
 	"io"
 	"net/http"
 	"os"
 	"strconv"
+
+	"github.com/PaulSonOfLars/gotgbot/v2"
+	"github.com/PaulSonOfLars/gotgbot/v2/ext"
+	"github.com/TurboHsu/turbo-tg-bot/utils/log"
 )
 
 func GenerateHelp() string {
@@ -79,12 +79,10 @@ func handlePhoto(bot *gotgbot.Bot, ctx *ext.Context, photo gotgbot.PhotoSize, co
 
 	client := http.Client{}
 	imageRes, err := client.Get(file.GetURL(bot))
-	if imageRes.StatusCode%100 > 2 {
-		return errors.New(
-			fmt.Sprintf(
-				"Failed to download image %s: HTTP request failed with status %d",
-				photo.FileId, imageRes.StatusCode,
-			),
+	if imageRes.StatusCode != 200 {
+		return fmt.Errorf(
+			"failed to download image %s: HTTP request failed with status %d, error is %s",
+			photo.FileId, imageRes.StatusCode, err.Error(),
 		)
 	}
 
@@ -106,12 +104,18 @@ func handlePhoto(bot *gotgbot.Bot, ctx *ext.Context, photo gotgbot.PhotoSize, co
 		caption := fmt.Sprintf("[%s] %s %s\n", result.Header.Similarity,
 			result.Data.Title,
 			result.Data.ExtUrls[0])
-		_, err = bot.SendPhoto(ctx.EffectiveChat.Id, result.Header.Thumbnail, &gotgbot.SendPhotoOpts{Caption: caption})
+		_, err = bot.SendPhoto(ctx.EffectiveChat.Id, result.Header.Thumbnail, &gotgbot.SendPhotoOpts{
+			Caption:          caption,
+			ReplyToMessageId: ctx.EffectiveMessage.ReplyToMessage.MessageId,
+		})
 		if err != nil {
 			log.HandleError(err)
 			_, _ = ctx.EffectiveChat.SendMessage(bot,
 				"<i>An error occurred when sending the photo</i>",
-				&gotgbot.SendMessageOpts{ParseMode: "html"})
+				&gotgbot.SendMessageOpts{
+					ParseMode:        "html",
+					ReplyToMessageId: ctx.EffectiveMessage.ReplyToMessage.MessageId,
+				})
 		}
 	}
 

@@ -17,6 +17,8 @@ import (
 	Members -> Members Group -> Eat Data -> Random generate -> send
 */
 
+var timers = make(map[*FoodEater]*time.Timer)
+
 // CommandHandler Handles the command
 func CommandHandler(bot *gotgbot.Bot, ctx *ext.Context) error {
 	parameter := ctx.Args()
@@ -161,10 +163,15 @@ func handleRecommendCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	speech := recommendation.getRecommendationString()
 	_, err := ctx.EffectiveMessage.Reply(bot, speech, &gotgbot.SendMessageOpts{})
 
-	time.AfterFunc(group.ReviewInterval*time.Second, func() {
+	nextTimer := time.AfterFunc(group.ReviewInterval*time.Second, func() {
 		err = sendInterview(recommendation, bot, ctx)
 		log.HandleError(err)
 	})
+
+	if timers[user] != nil {
+		timers[user].Stop()
+	}
+	timers[user] = nextTimer
 
 	return err
 }
@@ -284,7 +291,6 @@ func sendInternalError(bot *gotgbot.Bot, ctx *ext.Context) {
 		"<i>An internal error occurred</i>",
 		&gotgbot.SendMessageOpts{ParseMode: "html"})
 }
-
 func getRecommendation(group *FoodGroup) *Food {
 	sum := 0
 	for _, food := range group.Food {
@@ -387,10 +393,16 @@ func EatQueryResultHandler(bot *gotgbot.Bot, ctx *ext.Context) gotgbot.InlineQue
 		return nil
 	}
 	food := getRecommendation(group)
-	time.AfterFunc(group.ReviewInterval*time.Second, func() {
+	nextTimer := time.AfterFunc(group.ReviewInterval*time.Second, func() {
 		err := sendInterview(food, bot, ctx)
 		log.HandleError(err)
 	})
+
+	if timers[user] != nil {
+		timers[user].Stop()
+	}
+	timers[user] = nextTimer
+
 	_, err := bot.GetFile(food.Thumbnail, &gotgbot.GetFileOpts{})
 	if err != nil {
 		return &gotgbot.InlineQueryResultArticle{
@@ -427,7 +439,8 @@ func InterviewHandler(bot *gotgbot.Bot, ctx *ext.Context) error {
 		sendInternalError(bot, ctx)
 		return errors.New("message not to review")
 	}
-	food := interview[ctx.EffectiveMessage.ReplyToMessage.MessageId]
+	originalMsg := ctx.EffectiveMessage.ReplyToMessage.MessageId
+	food := interview[originalMsg]
 	if food == nil {
 		sendInternalError(bot, ctx)
 		return errors.New("message not to review")
@@ -448,15 +461,19 @@ func InterviewHandler(bot *gotgbot.Bot, ctx *ext.Context) error {
 	}
 	rate, msg := getRate(param, slash)
 	if msg != "" {
-		_, err := ctx.EffectiveMessage.Reply(bot, msg, &gotgbot.SendMessageOpts{})
+		newMsg, err := ctx.EffectiveMessage.Reply(bot, msg, &gotgbot.SendMessageOpts{})
+		delete(interview, originalMsg)
+		interview[newMsg.MessageId] = food
 		return err
 	}
 
-	food.Rank = (rate + food.Rank) / 2
+	food.Rank = rate/2 + food.Rank/2
 	saveChanges()
 	_, err := ctx.EffectiveMessage.Reply(bot,
 		fmt.Sprintf("Updated the rank of food to %s, considering other eaters' remark", food.RankString()),
 		&gotgbot.SendMessageOpts{})
-
+	if err == nil {
+		delete(interview, originalMsg)
+	}
 	return err
 }

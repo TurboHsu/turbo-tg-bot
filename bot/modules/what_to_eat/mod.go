@@ -446,7 +446,8 @@ func EatQueryResultHandler(bot *gotgbot.Bot, ctx *ext.Context) gotgbot.InlineQue
 }
 
 func sendInterview(food *Food, bot *gotgbot.Bot, ctx *ext.Context) error {
-	msg, err := bot.SendMessage(ctx.EffectiveSender.Id(), "How's your meal?", &gotgbot.SendMessageOpts{})
+	speech := fmt.Sprintf("How's your meal of %s?", food.Name)
+	msg, err := bot.SendMessage(ctx.EffectiveSender.Id(), speech, &gotgbot.SendMessageOpts{})
 	if err != nil {
 		return err
 	}

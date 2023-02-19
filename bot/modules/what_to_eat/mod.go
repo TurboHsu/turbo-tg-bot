@@ -3,6 +3,7 @@ package whattoeat
 import (
 	"errors"
 	"fmt"
+	"github.com/TurboHsu/turbo-tg-bot/utils/regexps"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -33,6 +34,8 @@ func CommandHandler(bot *gotgbot.Bot, ctx *ext.Context) error {
 			res.Text = handleAddCommand(senderId, parameter, bot, ctx)
 		case "list":
 			res.Text, res.Image = handleListCommand(senderId, parameter, ctx)
+		case "drop":
+			res.Text = handleDropCommand(senderId, parameter, bot, ctx)
 		default:
 			res.Text = "Unknown action."
 		}
@@ -348,7 +351,9 @@ func GenerateHelp() string {
 	return `/eat -- Get a food recommendation
 /eat group [quit|show] -- Quit or reveal current group
 /eat group join <name> -- Join or create a group
-/eat group duration [time] --
+/eat group duration [time] -- Time between you eat your food and bot asks you for remark
+/eat list [name] -- Get all food you can eat
+/eat drop <name> -- Smash some food and its rankings
 /eat some <name> [at <where>] <rank> -- Recommend some food to your group
 		The rank field can be one of the following:
 			<x>/<y> -- Fractional format, should be no more than 1.0
@@ -500,27 +505,109 @@ func handleListCommand(senderID int64, parameter []string, ctx *ext.Context) (te
 		return
 	}
 	group := Data.FindGroup(user.GroupName)
+	foodList := group.Food
 	if len(parameter) > 2 { //List specific food
 		//Merges all parameters to one food name
-		var foodName string
-		for i := 2; i < len(parameter); i++ {
-			foodName += parameter[i] + " "
+		name := strings.Join(parameter[2:], " ")
+		regex, err := regexps.Compile(name)
+		if err != nil {
+			text = "Oh no. You don't know how regex expressions work. Go get educated."
+			return
 		}
-		food := group.FindFood(foodName[:len(foodName)-1])
-		if food == nil {
-			text = fmt.Sprintf("Food [%s] not found! Did u mistype or dream it?", foodName[:len(foodName)-1])
-		} else {
-			text = fmt.Sprintf("The food's rank is [%d].\nIt's at [%s].", food.Rank, food.Location)
+
+		foodList = group.FindFood(regex, regex.HasFlag(regexps.Global))
+		if len(foodList) <= 0 {
+			text = fmt.Sprintf("No food matching %s! Did u mistype or dream it?", name[:len(name)-1])
+			return
+		} else if len(foodList) == 1 {
+			food := foodList[0]
+			text = ""
+			if regex.HasFlags() {
+				text = fmt.Sprintf("Matches some [%s].\n", food.Name)
+			}
+			text += fmt.Sprintf("The food's rank is [%d].\nIt's at [%s].", food.Rank, food.Location)
 			if food.Comment != "" {
 				text += fmt.Sprintf("And it got some comment: [%s]\n", food.Comment)
 			}
-			image = food.Thumbnail
-		}
-	} else { //List all foods
-		text = fmt.Sprintf("Here are these foods in group [%s]:\n", user.GroupName)
-		for _, food := range group.Food {
-			text += fmt.Sprintf("	- Name: [%s] Location: [%s] Rank: [%d] Comment: [%s]\n", food.Name, food.Location, food.Rank, food.Comment)
+			return
 		}
 	}
+	//List all foods
+	text = fmt.Sprintf("Here are these foods in group [%s]:\n", user.GroupName)
+	for _, food := range foodList {
+		text += fmt.Sprintf("	- Name: [%s] Location: [%s] Rank: [%d] Comment: [%s]\n", food.Name, food.Location, food.Rank, food.Comment)
+	}
 	return
+}
+
+func handleDropCommand(senderID int64, parameter []string, bot *gotgbot.Bot, ctx *ext.Context) string {
+	user := Data.FindUser(senderID)
+	if user == nil || user.GroupName == "" {
+		return "You haven't joined a group yet. To continue, join one."
+	}
+
+	group := Data.FindGroup(user.GroupName)
+	if group == nil {
+		sendInternalError(bot, ctx)
+		return "Somehow you are in a group that has been deleted. Strange."
+	}
+
+	if len(parameter) < 3 {
+		return "No, you can't drop the database. But you can quit your group if you think people in it are eating shit."
+	}
+	name := strings.Join(parameter[2:], " ")
+	regex, err := regexps.Compile(name)
+	if err != nil {
+		return "Oh no. You don't know how regex expressions work. Go get educated."
+	}
+
+	globalMode := regex.HasFlag(regexps.Global)
+	multipleTarget := false
+	if globalMode {
+		count := 0
+		for _, target := range group.Food {
+			if regex.Match(target.Name) {
+				count++
+				if count >= 2 {
+					multipleTarget = true
+					break
+				}
+			}
+		}
+	}
+
+	if globalMode && multipleTarget && !regex.HasFlag(regexps.Force) {
+		return "Are you sure about that? Add some /f flag to confirm"
+	}
+
+	dropped := make([]string, 0)
+	more := 0
+	for i := 0; i < len(group.Food); {
+		currentName := group.Food[i].Name
+		if regex.Match(currentName) {
+			group.Food = append(group.Food[:i], group.Food[i+1:]...)
+			if !globalMode {
+				saveChanges()
+				return fmt.Sprintf("%s has been dropped", currentName)
+			}
+			if len(dropped) < 5 {
+				dropped = append(dropped, currentName)
+			} else {
+				more++
+			}
+		} else {
+			i++
+		}
+	}
+
+	if len(dropped) > 0 {
+		saveChanges()
+		if more > 0 {
+			return fmt.Sprintf("Dropped [%s] and %d more", strings.Join(dropped, ", "), more)
+		} else {
+			return fmt.Sprintf("Dropped [%s]", strings.Join(dropped, ", "))
+		}
+	} else {
+		return "Nothing was dropped. Feel free to drop some."
+	}
 }

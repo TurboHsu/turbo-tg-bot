@@ -3,10 +3,10 @@ package whattoeat
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/TurboHsu/turbo-tg-bot/utils/log"
+	"github.com/TurboHsu/turbo-tg-bot/utils/regexps"
 	"io"
 	"os"
-
-	"github.com/TurboHsu/turbo-tg-bot/utils/log"
 )
 
 var Data Database
@@ -71,12 +71,16 @@ func (data Database) FindUser(id int64) *FoodEater {
 	return nil
 }
 
-// FindFood finds a food in specific group
-func (group FoodGroup) FindFood(foodname string) (food *Food) {
+// FindFood finds food in specific group.
+// If global mode is not enabled, single result will be returned.
+func (group FoodGroup) FindFood(name *regexps.Regexp, global bool) (food []*Food) {
+	food = make([]*Food, 0)
 	for _, f := range group.Food {
-		if foodname == f.Name {
-			food = f
-			return
+		if name.Match(f.Name) {
+			food = append(food, f)
+			if !global {
+				return
+			}
 		}
 	}
 	return

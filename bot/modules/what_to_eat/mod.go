@@ -3,11 +3,12 @@ package whattoeat
 import (
 	"errors"
 	"fmt"
-	"github.com/TurboHsu/turbo-tg-bot/utils/regexps"
 	"math/rand"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/TurboHsu/turbo-tg-bot/utils/regexps"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
@@ -530,6 +531,7 @@ func handleListCommand(senderID int64, parameter []string, ctx *ext.Context) (te
 			if food.Comment != "" {
 				text += fmt.Sprintf("And it got some comment: [%s]\n", food.Comment)
 			}
+			image = food.Thumbnail
 			return
 		}
 	}

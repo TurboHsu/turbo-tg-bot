@@ -202,7 +202,7 @@ func handleAddCommand(senderId int64, parameter []string, bot *gotgbot.Bot, ctx 
 	if user == nil || user.GroupName == "" {
 		return "You haven't joined a group yet.\nTo recommend a food, join one."
 	}
-	if len(parameter) < 4 {
+	if len(parameter) < 3 {
 		return "Too few arguments. Please input something"
 	}
 
@@ -244,15 +244,74 @@ func handleAddCommand(senderId int64, parameter []string, bot *gotgbot.Bot, ctx 
 
 	name = strings.Trim(name, " ")
 	location = strings.Trim(location, " ")
-	if name == "" || rate < 0 {
-		return "Too few arguments. Please give me more"
-	}
 
 	group := Data.FindGroup(user.GroupName)
 	if group == nil {
 		sendInternalError(bot, ctx)
 		return fmt.Sprintf("Group %s has been removed, but somehow you're still in it.\n"+
 			"To continue, run /eat group quit", user.GroupName)
+	}
+
+	// modify
+	if regex, err := regexps.Compile(name); err == nil {
+		modify := func(food *Food) bool {
+			modified := false
+			if thumb != "" && food.Thumbnail != thumb {
+				food.Thumbnail = thumb
+				modified = true
+			}
+			if location != "" && food.Location != location {
+				food.Location = location
+				modified = true
+			}
+			if rate >= 0 && food.Rank != rate {
+				food.Rank = rate
+				modified = true
+			}
+			saveChanges()
+			return modified
+		}
+
+		if regex.HasFlags() {
+			foodList := group.FindFood(regex)
+
+			if len(foodList) > 1 {
+				if !regex.HasFlag(regexps.Force) {
+					return "Do you know what you are doing? Modifying multiple targets requires /f flag."
+				}
+
+				success := make([]string, 0)
+				failure := make([]string, 0)
+				for _, food := range foodList {
+					if modify(food) {
+						success = append(success, food.Name)
+					} else {
+						failure = append(failure, food.Name)
+					}
+				}
+				if len(success) > 0 && len(failure) > 0 {
+					return fmt.Sprintf("Changes are made to [%s], while [%s] are queried but not modified",
+						strings.Join(success, ", "), strings.Join(failure, ", "))
+				} else if len(success) > 0 {
+					return fmt.Sprintf("Changes are made to [%s]", strings.Join(success, ", "))
+				} else if len(failure) > 0 {
+					return fmt.Sprintf("No change is made. [%s] are queried", strings.Join(failure, ", "))
+				}
+			} else if len(foodList) == 1 {
+				food := foodList[0]
+				modified := modify(food)
+				if modified {
+					return fmt.Sprintf("Successfully modified [%s]", food.Name)
+				} else {
+					return fmt.Sprintf("Queried [%s], but no change is made", food.Name)
+				}
+			}
+			return "No change is made. Feel free to make some."
+		}
+	}
+
+	if name == "" || rate < 0 {
+		return "Too few arguments. Please give me more"
 	}
 
 	group.Food = append(group.Food, &Food{
@@ -519,7 +578,7 @@ func handleListCommand(senderID int64, parameter []string, ctx *ext.Context) (te
 			return
 		}
 
-		foodList = group.FindFood(regex, regex.HasFlag(regexps.Global))
+		foodList = group.FindFood(regex)
 		if len(foodList) <= 0 {
 			text = fmt.Sprintf("No food matching %s! Did u mistype or dream it?", name)
 			return
@@ -643,7 +702,7 @@ func handleComment(senderID int64, parameter []string, ctx *ext.Context) (text s
 			return
 		}
 
-		foodList := group.FindFood(regex, regex.HasFlag(regexps.Global))
+		foodList := group.FindFood(regex)
 		if len(foodList) <= 0 {
 			text = fmt.Sprintf("No food matching %s! Did u mistype or dream it?", name)
 			return

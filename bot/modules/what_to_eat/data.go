@@ -73,8 +73,9 @@ func (data Database) FindUser(id int64) *FoodEater {
 
 // FindFood finds food in specific group.
 // If global mode is not enabled, single result will be returned.
-func (group FoodGroup) FindFood(name *regexps.Regexp, global bool) (food []*Food) {
+func (group FoodGroup) FindFood(name *regexps.Regexp) (food []*Food) {
 	food = make([]*Food, 0)
+	global := name.HasFlag(regexps.Global)
 	for _, f := range group.Food {
 		if name.Match(f.Name) {
 			food = append(food, f)

@@ -63,6 +63,7 @@ func handleGroupCommand(senderId int64, parameter []string) string {
 		join <group name> - Join one group. If you are already in one group, then u cant do it. If group does not exist, then create one. If group exists, then join it.
 		quit - Quit one group. If you are in one group, then quit it. If the group is empty, then delete it.
 		show - Show the current group info.
+		list <food name> - list the food name
 	*/
 	if len(parameter) > 2 {
 		switch parameter[2] {
@@ -507,7 +508,7 @@ func handleListCommand(senderID int64, parameter []string, ctx *ext.Context) (te
 		}
 		food := group.FindFood(foodName[:len(foodName)-1])
 		if food == nil {
-			text = fmt.Sprintf("Food [%s] not found! Did u mistype or dream it?", foodName)
+			text = fmt.Sprintf("Food [%s] not found! Did u mistype or dream it?", foodName[:len(foodName)-1])
 		} else {
 			text = fmt.Sprintf("The food's rank is [%d].\nIt's at [%s].", food.Rank, food.Location)
 			if food.Comment != "" {

@@ -430,6 +430,7 @@ func GenerateHelp() string {
 /eat list [name] -- Get all food you can eat
 /eat drop <name> -- Smash some food and its rankings
 /eat some <name> [at <where>] <rank> -- Recommend some food to your group
+/eat comment <name> -- Reply to any text in order to modify comment of specific food.
 		The rank field can be one of the following:
 			<x>/<y> -- Fractional format, should be no more than 1.0
 			<x> -- 10 based format, should be no more than 10

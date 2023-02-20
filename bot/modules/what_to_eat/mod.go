@@ -320,7 +320,6 @@ func handleAddCommand(senderId int64, parameter []string, bot *gotgbot.Bot, ctx 
 				return fmt.Sprintf("Queried [%s], but no change is made", food.Name)
 			}
 		}
-		return "No change is made. Feel free to make some."
 	}
 
 	if name == "" || rate < 0 {

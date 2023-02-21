@@ -32,7 +32,7 @@ This is a go mod, build it immediately :)
 ## Thank
 Thanks to these repo&websites.
 
-https://github.com/tucnak/telebot
+https://github.com/PaulSonOfLars/gotgbot
 
 https://saucenao.com
 
@@ -40,9 +40,7 @@ https://glot.io
 
 ---
 ## To-dos
-Add more image search sources
-
-Add code runner using glot.io
+ - idk
 
 ## License
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FTurboHsu%2Fturbo-tg-bot.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FTurboHsu%2Fturbo-tg-bot?ref=badge_large)

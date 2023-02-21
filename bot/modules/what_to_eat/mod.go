@@ -393,11 +393,11 @@ func getRecommendation(group *FoodGroup) *Food {
 		return nil
 	}
 
-	index := rand.Int31n(sum)
+	index := rand.Int31n(sum + 1)
 	sum = 0
 	for _, food := range group.Food {
 		sum += int32(food.Rank)
-		if index < sum {
+		if index <= sum {
 			return food
 		}
 	}

@@ -383,25 +383,25 @@ func sendInternalError(bot *gotgbot.Bot, ctx *ext.Context) {
 		"<i>An internal error occurred</i>",
 		&gotgbot.SendMessageOpts{ParseMode: "html"})
 }
+
 func getRecommendation(group *FoodGroup) *Food {
-	sum := 0
+	sum := int32(0)
 	for _, food := range group.Food {
-		sum += int(food.Rank)
+		sum += int32(food.Rank)
+	}
+	if sum == 0 {
+		return nil
 	}
 
+	index := rand.Int31n(sum)
+	sum = 0
 	for _, food := range group.Food {
-		if byChance(float32(food.Rank) / float32(sum)) {
+		sum += int32(food.Rank)
+		if index < sum {
 			return food
 		}
 	}
-	if len(group.Food) > 0 {
-		for _, food := range group.Food {
-			if food.Rank > 0 {
-				return food
-			}
-		}
-		return group.Food[0]
-	}
+
 	return nil
 }
 
@@ -414,10 +414,6 @@ func (food *Food) getRecommendationString() string {
 	} else {
 		return fmt.Sprintf("Recommending %s, %s", food.Name, food.RankString())
 	}
-}
-
-func byChance(chance float32) bool {
-	return rand.Float32() < chance
 }
 
 // GenerateHelp TODO

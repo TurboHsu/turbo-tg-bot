@@ -575,15 +575,17 @@ func InterviewHandler(bot *gotgbot.Bot, ctx *ext.Context) error {
 					food.Rank++
 					saveChanges()
 					ret.Message = "Okay, i know its good now. Added 1 points to it."
+				} else {
+					ret.Message = "I know its good, but its full score now."
 				}
-				ret.Message = "I know its good, but its full score now."
 			case -1:
 				if food.Rank >= 5 {
 					food.Rank -= 5
 					saveChanges()
 					ret.Message = "Okay, i know its dumb now. Deleted 5 points from it."
+				} else {
+					ret.Message = "There's no enough score for this junk to decline."
 				}
-				ret.Message = "There's no enough score for this junk to decline."
 			case 2:
 				ret.Message = "OK. Interview canceled."
 			case 0:
@@ -607,7 +609,7 @@ func InterviewHandler(bot *gotgbot.Bot, ctx *ext.Context) error {
 		}
 	}
 
-	// Direct rates	
+	// Direct rates
 	rate, msg := getRate(param, slash)
 	if msg != "" {
 		newMsg, err := ctx.EffectiveMessage.Reply(bot, msg, &gotgbot.SendMessageOpts{})

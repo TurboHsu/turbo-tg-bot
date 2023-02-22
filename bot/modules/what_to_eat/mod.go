@@ -193,6 +193,7 @@ func handleRecommendCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 					ReplyToMessageId: ctx.EffectiveMessage.MessageId,
 					Caption:          speech,
 				})
+			log.HandleError(err)
 		}
 	}
 
@@ -276,7 +277,7 @@ func handleAddCommand(senderId int64, parameter []string, bot *gotgbot.Bot, ctx 
 				food.Location = location
 				modified = true
 			}
-			if rate >= 0 && food.Rank != rate {
+			if rate >= 0 && food.Rank != rate && rate <= 100 {
 				food.Rank = rate
 				modified = true
 			}
@@ -540,17 +541,73 @@ func InterviewHandler(bot *gotgbot.Bot, ctx *ext.Context) error {
 
 	param := strings.Trim(ctx.EffectiveMessage.Text, " ")
 	isRate, slash := isRate(param)
+	// Commands
 	if !isRate {
-		responseNotToRate := func() string {
-			raw := strings.ToLower(param)
-			if raw == "idk" || raw == "cancel" || strings.Contains(raw, "don't") {
-				return "OK. Cancelled"
+		responseNotToRate := func() struct {
+			Message string
+			Renew   bool
+		} {
+			var ret struct {
+				Message string
+				Renew   bool
 			}
-			return "What u mean?"
+			// Situation decides whats the user's exact reaction.
+			// Good = 1; Dumb = -1; Unknown = 0; Cancel = 2
+			situation := func(str string) (ret int8) {
+				judge := []struct {
+					Msg string
+					Val int8
+				}{
+					{"good", 1}, {"nice", 1}, {"ok", 1},
+					{"fuck", -1}, {"shit", -1}, {"dumb", -1}, {"bad", -1},
+					{"idk", 2}, {"cancel", 2}, {"don't", 2},
+				}
+				for _, j := range judge {
+					if strings.Contains(str, j.Msg) {
+						ret = j.Val
+					}
+				}
+				return
+			}(strings.ToLower(param))
+			switch situation {
+			case 1:
+				if food.Rank < 100 {
+					food.Rank++
+					saveChanges()
+					ret.Message = "Okay, i know its good now. Added 1 points to it."
+				}
+				ret.Message = "I know its good, but its full score now."
+			case -1:
+				if food.Rank >= 5 {
+					food.Rank -= 5
+					saveChanges()
+					ret.Message = "Okay, i know its dumb now. Deleted 5 points from it."
+				}
+				ret.Message = "There's no enough score for this junk to decline."
+			case 2:
+				ret.Message = "OK. Interview canceled."
+			case 0:
+				fallthrough
+			default:
+				ret.Message = "What do u mean?"
+				ret.Renew = true
+			}
+			return ret
+		}()
+
+		if responseNotToRate.Renew {
+			newMsg, err := ctx.EffectiveMessage.Reply(bot, responseNotToRate.Message, &gotgbot.SendMessageOpts{})
+			delete(interview, originalMsg)
+			interview[newMsg.MessageId] = food
+			return err
+		} else {
+			delete(interview, originalMsg)
+			_, err := ctx.EffectiveMessage.Reply(bot, responseNotToRate.Message, &gotgbot.SendMessageOpts{})
+			return err
 		}
-		_, err := ctx.EffectiveMessage.Reply(bot, responseNotToRate(), &gotgbot.SendMessageOpts{})
-		return err
 	}
+
+	// Direct rates	
 	rate, msg := getRate(param, slash)
 	if msg != "" {
 		newMsg, err := ctx.EffectiveMessage.Reply(bot, msg, &gotgbot.SendMessageOpts{})
@@ -558,16 +615,24 @@ func InterviewHandler(bot *gotgbot.Bot, ctx *ext.Context) error {
 		interview[newMsg.MessageId] = food
 		return err
 	}
-
-	food.Rank = rate/2 + food.Rank/2
-	saveChanges()
-	_, err := ctx.EffectiveMessage.Reply(bot,
-		fmt.Sprintf("Updated the rank of food to %s, considering other eaters' remark", food.RankString()),
-		&gotgbot.SendMessageOpts{})
-	if err == nil {
+	if rate >= 0 && rate <= 100 {
+		food.Rank = rate/2 + food.Rank/2
+		saveChanges()
+		_, err := ctx.EffectiveMessage.Reply(bot,
+			fmt.Sprintf("Updated the rank of food to %s, considering other eaters' remark", food.RankString()),
+			&gotgbot.SendMessageOpts{})
+		if err == nil {
+			delete(interview, originalMsg)
+		}
+		return err
+	} else {
+		newMsg, err := ctx.EffectiveMessage.Reply(bot,
+			"The new rank is not valid! Did u have some typo error?",
+			&gotgbot.SendMessageOpts{})
 		delete(interview, originalMsg)
+		interview[newMsg.MessageId] = food
+		return err
 	}
-	return err
 }
 
 func handleListCommand(senderID int64, parameter []string, ctx *ext.Context) (text string, image string) {
